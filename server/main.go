@@ -210,8 +210,10 @@ func main() {
 
 	// Webhook endpoint with enhanced logging
 	mux.HandleFunc("/api/webhook", loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		log.Println("DEBUG: Entering webhook handler")
-		defer log.Println("DEBUG: Exiting webhook handler")
+		log.Println("DEBUG: =====================")
+		log.Println("DEBUG: Webhook handler start")
+		log.Println("DEBUG: =====================")
+		defer log.Println("DEBUG: Webhook handler end")
 
 		if r.Method != http.MethodPost {
 			log.Printf("Webhook: Rejected %s method (only POST allowed)", r.Method)
@@ -235,17 +237,17 @@ func main() {
 		log.Printf("Webhook: Raw body received: %s", string(body))
 
 		// Always update cache for any webhook call
-		log.Println("Webhook: Updating cache regardless of payload")
+		log.Println("Webhook: Starting cache update...")
 		if err := updateCache(cloudName, apiKey, apiSecret); err != nil {
 			log.Printf("Webhook: Failed to update cache: %v", err)
 			http.Error(w, "Failed to update cache", http.StatusInternalServerError)
 			return
 		}
-		log.Println("Webhook: Cache updated successfully")
+		log.Println("Webhook: Cache update completed successfully")
 
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Webhook processed successfully"))
-		log.Println("Webhook: Successfully processed request")
+		log.Println("Webhook: Response sent successfully")
 	}))
 
 	// Health check endpoint

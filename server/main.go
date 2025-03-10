@@ -149,7 +149,7 @@ func updateCache(cloudName, apiKey, apiSecret string) error {
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-		logf("Warning: .env file not found")
+		log.Println("Warning: .env file not found")
 	}
 
 	cloudName := os.Getenv("CLOUDINARY_CLOUD_NAME")
@@ -157,13 +157,13 @@ func main() {
 	apiSecret := os.Getenv("CLOUDINARY_API_SECRET")
 
 	if cloudName == "" || apiKey == "" || apiSecret == "" {
-		logf("Fatal: Required environment variables not found")
+		log.Println("Fatal: Required environment variables not found")
 		os.Exit(1)
 	}
 
 	// Initial cache population
 	if err := updateCache(cloudName, apiKey, apiSecret); err != nil {
-		logf("Warning: Initial cache population failed: %v", err)
+		log.Printf("Warning: Initial cache population failed: %v", err)
 	}
 
 	mux := http.NewServeMux()
@@ -201,6 +201,12 @@ func main() {
 		json.NewEncoder(w).Encode(response)
 	}))
 
+	// Simple test endpoint
+	mux.HandleFunc("/test", loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Test endpoint hit")
+		w.Write([]byte("Test endpoint working"))
+	}))
+
 	// Webhook endpoint with enhanced logging
 	mux.HandleFunc("/api/webhook", loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		log.Println("DEBUG: Entering webhook handler")
@@ -227,69 +233,18 @@ func main() {
 		}
 		log.Printf("Webhook: Raw body received: %s", string(body))
 
-		// Parse notification
-		var notification CloudinaryNotification
-		if err := json.Unmarshal(body, &notification); err != nil {
-			log.Printf("Webhook: Error parsing JSON: %v", err)
-			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		// Always update cache for any webhook call
+		log.Println("Webhook: Updating cache regardless of payload")
+		if err := updateCache(cloudName, apiKey, apiSecret); err != nil {
+			log.Printf("Webhook: Failed to update cache: %v", err)
+			http.Error(w, "Failed to update cache", http.StatusInternalServerError)
 			return
 		}
-
-		log.Printf("Webhook: Parsed notification: %+v", notification)
-
-		// Check if this is a test request from curl
-		if notification.PublicID == "test" {
-			log.Println("Webhook: Detected test request, updating cache anyway")
-			if err := updateCache(cloudName, apiKey, apiSecret); err != nil {
-				log.Printf("Webhook: Failed to update cache for test: %v", err)
-				http.Error(w, "Failed to update cache", http.StatusInternalServerError)
-				return
-			}
-			log.Println("Webhook: Cache updated successfully for test request")
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		// Check if this is a relevant notification (resource_type should be video)
-		if notification.ResourceType != "video" {
-			logf("Webhook: Ignoring non-video resource: %s", notification.ResourceType)
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		// Handle different notification types
-		switch notification.NotificationType {
-		case "upload":
-			logf("Webhook: Handling upload notification for %s", notification.PublicID)
-			if err := updateCache(cloudName, apiKey, apiSecret); err != nil {
-				logf("Webhook: Failed to update cache: %v", err)
-				http.Error(w, "Failed to update cache", http.StatusInternalServerError)
-				return
-			}
-			logf("Webhook: Cache updated successfully for upload: %s", notification.PublicID)
-
-		case "delete":
-			logf("Webhook: Handling delete notification")
-			if err := updateCache(cloudName, apiKey, apiSecret); err != nil {
-				logf("Webhook: Failed to update cache: %v", err)
-				http.Error(w, "Failed to update cache", http.StatusInternalServerError)
-				return
-			}
-			logf("Webhook: Cache updated successfully after delete")
-
-		default:
-			// For any notification type, update the cache anyway
-			logf("Webhook: Handling notification type: %s", notification.NotificationType)
-			if err := updateCache(cloudName, apiKey, apiSecret); err != nil {
-				logf("Webhook: Failed to update cache: %v", err)
-				http.Error(w, "Failed to update cache", http.StatusInternalServerError)
-				return
-			}
-			logf("Webhook: Cache updated successfully for notification type: %s", notification.NotificationType)
-		}
+		log.Println("Webhook: Cache updated successfully")
 
 		w.WriteHeader(http.StatusOK)
-		logf("Webhook: Successfully processed request")
+		w.Write([]byte("Webhook processed successfully"))
+		log.Println("Webhook: Successfully processed request")
 	}))
 
 	// Health check endpoint

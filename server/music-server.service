@@ -9,9 +9,12 @@ WorkingDirectory=/root/music-server/server
 ExecStart=/root/music-server/server/music-server
 Restart=always
 RestartSec=5
-StandardOutput=journal
-StandardError=journal
+StandardOutput=append:/var/log/music-server.log
+StandardError=append:/var/log/music-server.log
 Environment=PORT=80
+Environment=CLOUDINARY_CLOUD_NAME=dxzx2ywqe
+Environment=CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+Environment=CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
 
 [Install]
 WantedBy=multi-user.target 

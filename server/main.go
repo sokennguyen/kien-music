@@ -19,6 +19,9 @@ func init() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(log.Ldate | log.Ltime)
 	// Don't use log.Lshortfile as it makes the logs harder to read in journalctl
+	
+	// Log startup message to ensure logging is working
+	log.Println("Server initializing...")
 }
 
 // Helper function to format log messages consistently
@@ -27,7 +30,8 @@ func logf(format string, v ...interface{}) {
 	if len(format) == 0 || format[len(format)-1] != '\n' {
 		format += "\n"
 	}
-	fmt.Printf(format, v...)
+	// Use log.Printf instead of fmt.Printf to ensure proper journald integration
+	log.Printf(format, v...)
 }
 
 type CloudinaryResource struct {
@@ -70,14 +74,17 @@ var (
 
 // Fetch tracks from Cloudinary
 func fetchTracks(cloudName, apiKey, apiSecret string) (*CloudinaryResponse, error) {
+	logf("Fetching tracks from Cloudinary (cloud_name: %s)", cloudName)
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
 
-	req, err := http.NewRequest("GET",
-		"https://api.cloudinary.com/v1_1/"+cloudName+"/resources/video",
-		nil)
+	url := fmt.Sprintf("https://api.cloudinary.com/v1_1/%s/resources/video", cloudName)
+	logf("Making request to: %s", url)
+
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
+		logf("Error creating request: %v", err)
 		return nil, err
 	}
 
@@ -86,39 +93,57 @@ func fetchTracks(cloudName, apiKey, apiSecret string) (*CloudinaryResponse, erro
 	q.Add("prefix", "my-music/")
 	q.Add("max_results", "100")
 	req.URL.RawQuery = q.Encode()
+	logf("Full request URL: %s", req.URL.String())
 
 	req.SetBasicAuth(apiKey, apiSecret)
 
 	resp, err := client.Do(req)
 	if err != nil {
+		logf("Error making request: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
+	logf("Cloudinary API response status: %s", resp.Status)
+	
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		logf("Error reading response body: %v", err)
+		return nil, err
+	}
+	logf("Response body: %s", string(body))
+
 	var result CloudinaryResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(body, &result); err != nil {
+		logf("Error parsing JSON response: %v", err)
 		return nil, err
 	}
 
+	logf("Successfully fetched %d tracks", len(result.Resources))
 	return &result, nil
 }
 
 // Update cache
 func updateCache(cloudName, apiKey, apiSecret string) error {
+	logf("Starting cache update...")
 	tracks, err := fetchTracks(cloudName, apiKey, apiSecret)
 	if err != nil {
+		logf("Cache update failed: %v", err)
 		return err
 	}
 
 	trackCacheMux.Lock()
+	defer trackCacheMux.Unlock()
+	
+	logf("Previous cache had %d tracks", len(trackCache.Resources))
 	trackCache = *tracks
-	trackCacheMux.Unlock()
+	logf("New cache has %d tracks", len(tracks.Resources))
 
 	lastFetchMux.Lock()
 	lastFetchTime = time.Now()
 	lastFetchMux.Unlock()
 
-	logf("Cache updated with %d tracks", len(tracks.Resources))
+	logf("Cache update completed successfully")
 	return nil
 }
 
@@ -147,9 +172,9 @@ func main() {
 	loggingMiddleware := func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
-			logf("REQUEST: %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
+			log.Printf("REQUEST: %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
 			next(w, r)
-			logf("COMPLETED: %s %s in %v", r.Method, r.URL.Path, time.Since(start))
+			log.Printf("COMPLETED: %s %s in %v", r.Method, r.URL.Path, time.Since(start))
 		}
 	}
 
@@ -178,39 +203,59 @@ func main() {
 
 	// Webhook endpoint with enhanced logging
 	mux.HandleFunc("/api/webhook", loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		logf("DEBUG: Entering webhook handler")
-		defer logf("DEBUG: Exiting webhook handler")
+		log.Println("DEBUG: Entering webhook handler")
+		defer log.Println("DEBUG: Exiting webhook handler")
 
 		if r.Method != http.MethodPost {
-			logf("Webhook: Rejected %s method (only POST allowed)", r.Method)
+			log.Printf("Webhook: Rejected %s method (only POST allowed)", r.Method)
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
 		// Log headers for debugging
-		logf("Webhook: Headers received:")
+		log.Println("Webhook: Headers received:")
 		for name, values := range r.Header {
-			logf("  %s: %v", name, values)
+			log.Printf("  %s: %v", name, values)
 		}
 
 		// Read and log raw body
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
-			logf("Webhook: Error reading body: %v", err)
+			log.Printf("Webhook: Error reading body: %v", err)
 			http.Error(w, "Error reading body", http.StatusBadRequest)
 			return
 		}
-		logf("Webhook: Raw body received: %s", string(body))
+		log.Printf("Webhook: Raw body received: %s", string(body))
 
 		// Parse notification
 		var notification CloudinaryNotification
 		if err := json.Unmarshal(body, &notification); err != nil {
-			logf("Webhook: Error parsing JSON: %v", err)
+			log.Printf("Webhook: Error parsing JSON: %v", err)
 			http.Error(w, "Invalid JSON", http.StatusBadRequest)
 			return
 		}
 
-		logf("Webhook: Parsed notification: %+v", notification)
+		log.Printf("Webhook: Parsed notification: %+v", notification)
+
+		// Check if this is a test request from curl
+		if notification.PublicID == "test" {
+			log.Println("Webhook: Detected test request, updating cache anyway")
+			if err := updateCache(cloudName, apiKey, apiSecret); err != nil {
+				log.Printf("Webhook: Failed to update cache for test: %v", err)
+				http.Error(w, "Failed to update cache", http.StatusInternalServerError)
+				return
+			}
+			log.Println("Webhook: Cache updated successfully for test request")
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Check if this is a relevant notification (resource_type should be video)
+		if notification.ResourceType != "video" {
+			logf("Webhook: Ignoring non-video resource: %s", notification.ResourceType)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 
 		// Handle different notification types
 		switch notification.NotificationType {
@@ -233,7 +278,14 @@ func main() {
 			logf("Webhook: Cache updated successfully after delete")
 
 		default:
-			logf("Webhook: Unhandled notification type: %s", notification.NotificationType)
+			// For any notification type, update the cache anyway
+			logf("Webhook: Handling notification type: %s", notification.NotificationType)
+			if err := updateCache(cloudName, apiKey, apiSecret); err != nil {
+				logf("Webhook: Failed to update cache: %v", err)
+				http.Error(w, "Failed to update cache", http.StatusInternalServerError)
+				return
+			}
+			logf("Webhook: Cache updated successfully for notification type: %s", notification.NotificationType)
 		}
 
 		w.WriteHeader(http.StatusOK)

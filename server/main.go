@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
+	"log/syslog"
 	"net/http"
 	"os"
 	"sync"
@@ -12,6 +14,19 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/rs/cors"
 )
+
+func init() {
+	// Set up syslog logging
+	syslogWriter, err := syslog.New(syslog.LOG_INFO|syslog.LOG_DAEMON, "music-server")
+	if err != nil {
+		log.Printf("Failed to initialize syslog: %v", err)
+		return
+	}
+	
+	// Configure standard logger to use syslog
+	log.SetOutput(syslogWriter)
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+}
 
 type CloudinaryResource struct {
 	AssetID  string `json:"asset_id"`
@@ -106,9 +121,6 @@ func updateCache(cloudName, apiKey, apiSecret string) error {
 }
 
 func main() {
-	// Set up logging to include timestamps and file info
-	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-	
 	if err := godotenv.Load(); err != nil {
 		log.Printf("Warning: .env file not found")
 	}

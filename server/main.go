@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -28,6 +29,7 @@ type CloudinaryNotification struct {
 	ResourceType string `json:"resource_type"`
 	Type         string `json:"type"`
 	Notification string `json:"notification_type"`
+	Timestamp    int64  `json:"timestamp"`
 }
 
 // Global cache
@@ -120,7 +122,7 @@ func main() {
 		MaxAge:           300,
 	})
 
-	// Tracks endpoint - returns cached data
+	// Tracks endpoint
 	mux.HandleFunc("/api/tracks", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -135,34 +137,59 @@ func main() {
 		json.NewEncoder(w).Encode(response)
 	})
 
-	// Webhook endpoint for Cloudinary notifications
+	// Webhook endpoint with enhanced logging
 	mux.HandleFunc("/api/webhook", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("Webhook: Received request from %s with method %s", r.RemoteAddr, r.Method)
+		
 		if r.Method != http.MethodPost {
+			log.Printf("Webhook: Invalid method %s from %s", r.Method, r.RemoteAddr)
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
-		// Parse notification
-		var notification CloudinaryNotification
-		if err := json.NewDecoder(r.Body).Decode(&notification); err != nil {
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
+		// Log all request headers
+		log.Printf("Webhook: Headers received:")
+		for name, values := range r.Header {
+			log.Printf("  %s: %v", name, values)
+		}
+
+		// Read and log the raw body
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			log.Printf("Webhook: Error reading body: %v", err)
+			http.Error(w, "Error reading body", http.StatusBadRequest)
 			return
 		}
+		log.Printf("Webhook: Raw body received: %s", string(body))
+
+		// Parse notification
+		var notification CloudinaryNotification
+		if err := json.Unmarshal(body, &notification); err != nil {
+			log.Printf("Webhook: Error parsing JSON: %v", err)
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
+
+		log.Printf("Webhook: Parsed notification: %+v", notification)
 
 		// Only update cache for relevant changes
 		if notification.ResourceType == "video" && 
 		   notification.Type == "upload" && 
 		   notification.Notification == "resource_created" {
-			// Update cache
+			log.Printf("Webhook: Valid upload notification received, updating cache")
 			if err := updateCache(cloudName, apiKey, apiSecret); err != nil {
-				log.Printf("Error updating cache: %v", err)
+				log.Printf("Webhook: Failed to update cache: %v", err)
 				http.Error(w, "Failed to update cache", http.StatusInternalServerError)
 				return
 			}
-			log.Printf("Cache updated after new upload: %s", notification.PublicID)
+			log.Printf("Webhook: Cache updated successfully for new upload: %s", notification.PublicID)
+		} else {
+			log.Printf("Webhook: Ignoring notification - not a relevant change (ResourceType=%s, Type=%s, Notification=%s)",
+				notification.ResourceType, notification.Type, notification.Notification)
 		}
 
 		w.WriteHeader(http.StatusOK)
+		log.Printf("Webhook: Successfully processed request")
 	})
 
 	// Health check endpoint
@@ -189,7 +216,7 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "80"  // Changed to 80 for direct access
 	}
 
 	log.Printf("Server starting on port %s", port)

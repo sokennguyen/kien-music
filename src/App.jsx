@@ -328,8 +328,8 @@ const MusicPlayer = () => {
         setIsLoading(true);
         setFetchError(null);
 
-        // Fetch from our Go server instead of Cloudinary directly
-        const response = await axios.get('http://localhost:8080/api/tracks');
+        // Fetch from our Go server
+        const response = await axios.get('http://107.191.40.30/api/tracks');
 
         if (!response.data || !response.data.resources) {
           throw new Error('Invalid response from server');

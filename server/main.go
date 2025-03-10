@@ -106,6 +106,9 @@ func updateCache(cloudName, apiKey, apiSecret string) error {
 }
 
 func main() {
+	// Set up logging to include timestamps and file info
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	
 	if err := godotenv.Load(); err != nil {
 		log.Printf("Warning: .env file not found")
 	}
@@ -124,6 +127,16 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
+
+	// Add a logging middleware
+	loggingMiddleware := func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
+			log.Printf("REQUEST: %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
+			next(w, r)
+			log.Printf("COMPLETED: %s %s in %v", r.Method, r.URL.Path, time.Since(start))
+		}
+	}
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:5173", "https://music.nskien.com"},
@@ -148,12 +161,16 @@ func main() {
 		json.NewEncoder(w).Encode(response)
 	})
 
-	// Webhook endpoint with enhanced logging and validation
-	mux.HandleFunc("/api/webhook", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("Webhook: Received request from %s with method %s", r.RemoteAddr, r.Method)
+	// Webhook endpoint with enhanced logging
+	mux.HandleFunc("/api/webhook", loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("DEBUG: Entering webhook handler")
+		defer log.Printf("DEBUG: Exiting webhook handler")
+
+		// Log ALL incoming requests regardless of method
+		log.Printf("Webhook: Received %s request from %s to %s", r.Method, r.RemoteAddr, r.URL.Path)
 		
 		if r.Method != http.MethodPost {
-			log.Printf("Webhook: Invalid method %s from %s", r.Method, r.RemoteAddr)
+			log.Printf("Webhook: Rejected %s method (only POST allowed)", r.Method)
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
@@ -162,14 +179,6 @@ func main() {
 		log.Printf("Webhook: Headers received:")
 		for name, values := range r.Header {
 			log.Printf("  %s: %v", name, values)
-		}
-
-		// Validate Content-Type
-		contentType := r.Header.Get("Content-Type")
-		if contentType != "application/json" {
-			log.Printf("Webhook: Invalid Content-Type: %s", contentType)
-			http.Error(w, "Invalid Content-Type", http.StatusBadRequest)
-			return
 		}
 
 		// Read and log raw body
@@ -225,7 +234,7 @@ func main() {
 		// Send 200 OK response
 		w.WriteHeader(http.StatusOK)
 		log.Printf("Webhook: Successfully processed request")
-	})
+	}))
 
 	// Health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

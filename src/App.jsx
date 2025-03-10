@@ -1,32 +1,43 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Play, Pause, Volume2, ArrowLeft, VolumeX, Music, Headphones } from 'lucide-react';
 import ReactHowler from 'react-howler';
+import { Cloudinary } from '@cloudinary/url-gen';
+import axios from 'axios';
+
+// Initialize Cloudinary with your cloud name and API key
+const CLOUDINARY_CLOUD_NAME = 'drenighdk';
+// Note: We're not using the API secret in the frontend for security reasons
+
+const cld = new Cloudinary({
+  cloud: {
+    cloudName: CLOUDINARY_CLOUD_NAME
+  }
+});
 
 // Helper function to format date from filename
-const formatDateFromFilename = (audioUrl) => {
-  // Extract the filename from the URL
-  const filename = audioUrl.split('/').pop();
-  
-  // Extract the date part (assuming format: yyyy-mm-dd.mp3)
-  const datePart = filename.split('.')[0];
-  
-  // Parse the date components
-  const [year, month, day] = datePart.split('-').map(num => parseInt(num, 10));
-  
-  // Create a formatted date string
-  const date = new Date(year, month - 1, day); // month is 0-indexed in JS Date
-  
-  // Format options
-  const options = { year: 'numeric', month: 'long', day: 'numeric' };
-  return date.toLocaleDateString('en-US', options);
+const formatDateFromFilename = (filename) => {
+  try {
+    // Extract the date part (assuming format: yyyy-mm-dd.mp3)
+    const datePart = filename.split('.')[0];
+    
+    // Parse the date components
+    const [year, month, day] = datePart.split('-').map(num => parseInt(num, 10));
+    
+    // Create a formatted date string
+    const date = new Date(year, month - 1, day); // month is 0-indexed in JS Date
+    
+    // Format options
+    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    return date.toLocaleDateString('en-US', options);
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'Unknown Date';
+  }
 };
 
 // Helper function to format remake title from filename
-const formatRemakeTitle = (audioUrl) => {
+const formatRemakeTitle = (filename) => {
   try {
-    // Extract the filename from the URL
-    const filename = audioUrl.split('/').pop();
-    
     // Remove the extension and "cover-" prefix
     const titlePart = filename.split('.')[0].replace('cover-', '');
     
@@ -54,11 +65,8 @@ const formatRemakeTitle = (audioUrl) => {
 };
 
 // Helper function to format original title from filename
-const formatOriginalTitle = (audioUrl) => {
+const formatOriginalTitle = (filename) => {
   try {
-    // Extract the filename from the URL
-    const filename = audioUrl.split('/').pop();
-    
     // Remove the extension
     const titlePart = filename.split('.')[0];
     
@@ -77,49 +85,6 @@ const formatOriginalTitle = (audioUrl) => {
   }
 };
 
-// Daily Sessions tracks - using dates extracted from filenames
-const dailySessionsTracks = [
-  { 
-    id: 1, 
-    audio: "https://res.cloudinary.com/drenighdk/video/upload/v1741270079/my-music/2025-03-01.mp3",
-    get date() { return formatDateFromFilename(this.audio); }
-  },
-  { 
-    id: 2, 
-    audio: "https://res.cloudinary.com/drenighdk/video/upload/v1741270079/my-music/2024-11-01.mp3",
-    get date() { return formatDateFromFilename(this.audio); }
-  },
-  { 
-    id: 3, 
-    audio: "https://res.cloudinary.com/drenighdk/video/upload/v1741270079/my-music/2025-06-03.mp3",
-    get date() { return formatDateFromFilename(this.audio); }
-  },
-  { 
-    id: 4, 
-    audio: "https://res.cloudinary.com/drenighdk/video/upload/v1741270078/my-music/2025-02-18.mp3",
-    get date() { return formatDateFromFilename(this.audio); }
-  },
-];
-
-// Remakes tracks
-const remakesTracks = [
-  { 
-    id: 1, 
-    audio: "https://res.cloudinary.com/drenighdk/video/upload/v1741270159/my-music/cover-Clyde___Bonnie-Tai_Verdes.mp3",
-    get title() { return formatRemakeTitle(this.audio); }
-  },
-  { 
-    id: 2, 
-    audio: "https://res.cloudinary.com/drenighdk/video/upload/v1741270159/my-music/cover-Simon___Garfunkel-The_Sound_of_Silence.mp3",
-    get title() { return formatRemakeTitle(this.audio); }
-  },
-];
-
-// Full Originals tracks
-const originalsTracks = [
-  // Empty for now
-];
-
 const formatTime = (timeInSeconds) => {
   if (!timeInSeconds || isNaN(timeInSeconds)) return "00:00";
   const minutes = Math.floor(timeInSeconds / 60);
@@ -127,7 +92,7 @@ const formatTime = (timeInSeconds) => {
   return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 };
 
-const HomeScreen = ({ onNavigate }) => (
+const HomeScreen = ({ onNavigate, trackCounts }) => (
   <div className="flex flex-col h-full p-8 font-sans">
     <div className="flex justify-between items-center mb-16">
       <div className="text-2xl flex items-center">
@@ -156,7 +121,7 @@ const HomeScreen = ({ onNavigate }) => (
       >
         <div className="w-64 h-64 rounded-lg border-4 border-gray-300 mb-4"></div>
         <h2 className="text-2xl font-bold text-left">Daily Sessions</h2>
-        <p className="text-lg text-left">{dailySessionsTracks.length} Tracks</p>
+        <p className="text-lg text-left">{trackCounts.dailySessions} Tracks</p>
       </div>
       
       <div 
@@ -165,7 +130,7 @@ const HomeScreen = ({ onNavigate }) => (
       >
         <div className="w-64 h-64 rounded-lg border-4 border-gray-300 mb-4"></div>
         <h2 className="text-2xl font-bold text-left">Remakes</h2>
-        <p className="text-lg text-left">{remakesTracks.length} Tracks</p>
+        <p className="text-lg text-left">{trackCounts.remakes} Tracks</p>
       </div>
       
       <div 
@@ -174,7 +139,7 @@ const HomeScreen = ({ onNavigate }) => (
       >
         <div className="w-64 h-64 rounded-lg border-4 border-gray-300 mb-4"></div>
         <h2 className="text-2xl font-bold text-left">Full Originals</h2>
-        <p className="text-lg text-left">{originalsTracks.length > 0 ? `${originalsTracks.length} Tracks` : "Work in progress, just wait"}</p>
+        <p className="text-lg text-left">{trackCounts.originals > 0 ? `${trackCounts.originals} Tracks` : "Work in progress, just wait"}</p>
       </div>
     </div>
   </div>
@@ -345,9 +310,90 @@ const MusicPlayer = () => {
   const [audioError, setAudioError] = useState(false);
   const [isSeeking, setIsSeeking] = useState(false);
   
+  // Track data states
+  const [dailySessionsTracks, setDailySessionsTracks] = useState([]);
+  const [remakesTracks, setRemakesTracks] = useState([]);
+  const [originalsTracks, setOriginalsTracks] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
+  
   // Refs
   const playerRef = useRef(null);
   const rafRef = useRef(null);
+  
+  // Fetch tracks from Cloudinary
+  useEffect(() => {
+    const fetchTracks = async () => {
+      try {
+        setIsLoading(true);
+        setFetchError(null);
+
+        // Fetch from our Go server instead of Cloudinary directly
+        const response = await axios.get('http://localhost:8080/api/tracks');
+
+        if (!response.data || !response.data.resources) {
+          throw new Error('Invalid response from server');
+        }
+
+        // Process the resources into our track categories
+        const resources = response.data.resources;
+        
+        // Sort resources into categories based on filename patterns
+        const dailySessions = [];
+        const remakes = [];
+        const originals = [];
+
+        resources.forEach(resource => {
+          // Extract filename from public_id (remove folder prefix)
+          const filename = resource.public_id.split('/').pop();
+          
+          // Create track object with Cloudinary URL
+          const track = {
+            id: resource.asset_id,
+            filename,
+            // Use the Cloudinary URL-Gen SDK to create the audio URL
+            audio: cld.video(resource.public_id)
+              .format('mp3')
+              .delivery('upload')
+              .toURL()
+          };
+
+          // Add to appropriate category based on filename pattern
+          if (filename.startsWith('cover-')) {
+            Object.defineProperty(track, 'title', {
+              get() { return formatRemakeTitle(this.filename); }
+            });
+            remakes.push(track);
+          } else if (/^\d{4}-\d{2}-\d{2}\.mp3$/.test(filename)) {
+            Object.defineProperty(track, 'date', {
+              get() { return formatDateFromFilename(this.filename); }
+            });
+            dailySessions.push(track);
+          } else {
+            Object.defineProperty(track, 'title', {
+              get() { return formatOriginalTitle(this.filename); }
+            });
+            originals.push(track);
+          }
+        });
+
+        // Sort daily sessions by date (newest first)
+        dailySessions.sort((a, b) => b.filename.localeCompare(a.filename));
+
+        setDailySessionsTracks(dailySessions);
+        setRemakesTracks(remakes);
+        setOriginalsTracks(originals);
+
+      } catch (error) {
+        console.error('Error fetching tracks:', error);
+        setFetchError(`Failed to fetch tracks: ${error.message}`);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchTracks();
+  }, []);
   
   // Get current category tracks based on screen
   const getCurrentTracks = () => {
@@ -365,6 +411,13 @@ const MusicPlayer = () => {
   
   const currentTracks = getCurrentTracks();
   const currentTrack = currentTracks[currentTrackIndex];
+  
+  // Track counts for the home screen
+  const trackCounts = {
+    dailySessions: dailySessionsTracks.length,
+    remakes: remakesTracks.length,
+    originals: originalsTracks.length
+  };
   
   // Update seek position using requestAnimationFrame
   const updateSeekPosition = () => {
@@ -391,16 +444,6 @@ const MusicPlayer = () => {
     
     return () => cancelAnimationFrame(rafRef.current);
   }, [isPlaying, isSeeking]);
-
-  // Clean up on unmount
-  useEffect(() => {
-    return () => {
-      cancelAnimationFrame(rafRef.current);
-      if (playerRef.current) {
-        playerRef.current.unload();
-      }
-    };
-  }, []);
 
   // Reset state when track or category changes
   useEffect(() => {
@@ -534,8 +577,19 @@ const MusicPlayer = () => {
 
   return (
     <div className="w-full max-w-6xl mx-auto h-screen max-h-[900px] border-4 border-gray-300 rounded-3xl overflow-hidden flex flex-col">
-      {currentScreen === 'home' ? (
-        <HomeScreen onNavigate={handleNavigate} />
+      {isLoading ? (
+        <div className="flex items-center justify-center h-full">
+          <p className="text-2xl">Loading tracks...</p>
+        </div>
+      ) : fetchError ? (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <p className="text-2xl text-red-500 mb-4">{fetchError}</p>
+            <p>Using fallback tracks instead.</p>
+          </div>
+        </div>
+      ) : currentScreen === 'home' ? (
+        <HomeScreen onNavigate={handleNavigate} trackCounts={trackCounts} />
       ) : (
         <>
           <CategoryScreen 
@@ -567,7 +621,6 @@ const MusicPlayer = () => {
   );
 };
 
-// App wrapper to ensure proper centering
 const App = () => {
   return (
     <div className="min-h-screen w-full flex items-center justify-center">

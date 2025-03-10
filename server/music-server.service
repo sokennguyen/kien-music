@@ -1,0 +1,15 @@
+[Unit]
+Description=Music Portfolio Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/music-server
+ExecStart=/root/music-server/music-server
+Restart=always
+RestartSec=5
+Environment=PORT=80
+
+[Install]
+WantedBy=multi-user.target 

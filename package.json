@@ -10,10 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@cloudinary/react": "^1.14.1",
+    "@cloudinary/url-gen": "^1.21.0",
     "@gsap/react": "^2.1.2",
     "@react-three/drei": "^10.0.4",
     "@react-three/fiber": "^9.0.4",
     "@tailwindcss/vite": "^4.0.12",
+    "axios": "^1.8.2",
     "gsap": "^3.12.7",
     "lucide-react": "^0.479.0",
     "react": "^19.0.0",

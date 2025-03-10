@@ -25,11 +25,22 @@ type CloudinaryResponse struct {
 }
 
 type CloudinaryNotification struct {
-	PublicID     string `json:"public_id"`
-	ResourceType string `json:"resource_type"`
-	Type         string `json:"type"`
-	Notification string `json:"notification_type"`
-	Timestamp    int64  `json:"timestamp"`
+	NotificationType     string    `json:"notification_type"`
+	Timestamp           string    `json:"timestamp,omitempty"`
+	RequestID           string    `json:"request_id,omitempty"`
+	AssetID            string    `json:"asset_id,omitempty"`
+	PublicID           string    `json:"public_id"`
+	ResourceType       string    `json:"resource_type"`
+	Type              string    `json:"type"`
+	Version           int64     `json:"version,omitempty"`
+	Format            string    `json:"format,omitempty"`
+	NotificationContext struct {
+		TriggeredAt  string `json:"triggered_at"`
+		TriggeredBy struct {
+			Source string `json:"source"`
+			ID     string `json:"id"`
+		} `json:"triggered_by"`
+	} `json:"notification_context"`
 }
 
 // Global cache
@@ -115,7 +126,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:3000", "https://your-production-domain.com"},
+		AllowedOrigins:   []string{"http://localhost:5173", "https://music.nskien.com"},
 		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
 		AllowedHeaders:   []string{"*"},
 		AllowCredentials: true,
@@ -137,7 +148,7 @@ func main() {
 		json.NewEncoder(w).Encode(response)
 	})
 
-	// Webhook endpoint with enhanced logging
+	// Webhook endpoint with enhanced logging and validation
 	mux.HandleFunc("/api/webhook", func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Webhook: Received request from %s with method %s", r.RemoteAddr, r.Method)
 		
@@ -147,13 +158,21 @@ func main() {
 			return
 		}
 
-		// Log all request headers
+		// Log headers for debugging
 		log.Printf("Webhook: Headers received:")
 		for name, values := range r.Header {
 			log.Printf("  %s: %v", name, values)
 		}
 
-		// Read and log the raw body
+		// Validate Content-Type
+		contentType := r.Header.Get("Content-Type")
+		if contentType != "application/json" {
+			log.Printf("Webhook: Invalid Content-Type: %s", contentType)
+			http.Error(w, "Invalid Content-Type", http.StatusBadRequest)
+			return
+		}
+
+		// Read and log raw body
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			log.Printf("Webhook: Error reading body: %v", err)
@@ -172,22 +191,38 @@ func main() {
 
 		log.Printf("Webhook: Parsed notification: %+v", notification)
 
-		// Only update cache for relevant changes
-		if notification.ResourceType == "video" && 
-		   notification.Type == "upload" && 
-		   notification.Notification == "resource_created" {
-			log.Printf("Webhook: Valid upload notification received, updating cache")
+		// Validate required fields
+		if notification.ResourceType == "" || notification.Type == "" {
+			log.Printf("Webhook: Missing required fields")
+			http.Error(w, "Missing required fields", http.StatusBadRequest)
+			return
+		}
+
+		// Handle different notification types
+		switch notification.NotificationType {
+		case "upload":
+			log.Printf("Webhook: Handling upload notification for %s", notification.PublicID)
 			if err := updateCache(cloudName, apiKey, apiSecret); err != nil {
 				log.Printf("Webhook: Failed to update cache: %v", err)
 				http.Error(w, "Failed to update cache", http.StatusInternalServerError)
 				return
 			}
-			log.Printf("Webhook: Cache updated successfully for new upload: %s", notification.PublicID)
-		} else {
-			log.Printf("Webhook: Ignoring notification - not a relevant change (ResourceType=%s, Type=%s, Notification=%s)",
-				notification.ResourceType, notification.Type, notification.Notification)
+			log.Printf("Webhook: Cache updated successfully for upload: %s", notification.PublicID)
+
+		case "delete":
+			log.Printf("Webhook: Handling delete notification")
+			if err := updateCache(cloudName, apiKey, apiSecret); err != nil {
+				log.Printf("Webhook: Failed to update cache: %v", err)
+				http.Error(w, "Failed to update cache", http.StatusInternalServerError)
+				return
+			}
+			log.Printf("Webhook: Cache updated successfully after delete")
+
+		default:
+			log.Printf("Webhook: Unhandled notification type: %s", notification.NotificationType)
 		}
 
+		// Send 200 OK response
 		w.WriteHeader(http.StatusOK)
 		log.Printf("Webhook: Successfully processed request")
 	})

@@ -2,10 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
-	"log"
-	"log/syslog"
+	"log/slog"
 	"net/http"
 	"os"
 	"sync"
@@ -16,16 +14,14 @@ import (
 )
 
 func init() {
-	// Set up syslog logging
-	syslogWriter, err := syslog.New(syslog.LOG_INFO|syslog.LOG_DAEMON, "music-server")
-	if err != nil {
-		log.Printf("Failed to initialize syslog: %v", err)
-		return
+	// Initialize structured logging
+	opts := &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+		AddSource: true,
 	}
-	
-	// Configure standard logger to use syslog
-	log.SetOutput(syslogWriter)
-	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	handler := slog.NewJSONHandler(os.Stdout, opts)
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
 }
 
 type CloudinaryResource struct {
@@ -116,13 +112,13 @@ func updateCache(cloudName, apiKey, apiSecret string) error {
 	lastFetchTime = time.Now()
 	lastFetchMux.Unlock()
 
-	log.Printf("Cache updated with %d tracks", len(tracks.Resources))
+	slog.Info("cache updated", "track_count", len(tracks.Resources))
 	return nil
 }
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-		log.Printf("Warning: .env file not found")
+		slog.Warn("env file not found")
 	}
 
 	cloudName := os.Getenv("CLOUDINARY_CLOUD_NAME")
@@ -130,12 +126,13 @@ func main() {
 	apiSecret := os.Getenv("CLOUDINARY_API_SECRET")
 
 	if cloudName == "" || apiKey == "" || apiSecret == "" {
-		log.Fatal("Required environment variables not found")
+		slog.Error("required environment variables not found")
+		os.Exit(1)
 	}
 
 	// Initial cache population
 	if err := updateCache(cloudName, apiKey, apiSecret); err != nil {
-		log.Printf("Warning: Initial cache population failed: %v", err)
+		slog.Warn("initial cache population failed", "error", err)
 	}
 
 	mux := http.NewServeMux()
@@ -144,9 +141,17 @@ func main() {
 	loggingMiddleware := func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
-			log.Printf("REQUEST: %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
+			slog.Info("request started",
+				"method", r.Method,
+				"path", r.URL.Path,
+				"remote_addr", r.RemoteAddr,
+			)
 			next(w, r)
-			log.Printf("COMPLETED: %s %s in %v", r.Method, r.URL.Path, time.Since(start))
+			slog.Info("request completed",
+				"method", r.Method,
+				"path", r.URL.Path,
+				"duration", time.Since(start),
+			)
 		}
 	}
 
@@ -175,46 +180,54 @@ func main() {
 
 	// Webhook endpoint with enhanced logging
 	mux.HandleFunc("/api/webhook", loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("DEBUG: Entering webhook handler")
-		defer log.Printf("DEBUG: Exiting webhook handler")
+		slog.Debug("webhook handler entered")
+		defer slog.Debug("webhook handler exited")
 
-		// Log ALL incoming requests regardless of method
-		log.Printf("Webhook: Received %s request from %s to %s", r.Method, r.RemoteAddr, r.URL.Path)
-		
 		if r.Method != http.MethodPost {
-			log.Printf("Webhook: Rejected %s method (only POST allowed)", r.Method)
+			slog.Warn("webhook rejected", 
+				"method", r.Method,
+				"remote_addr", r.RemoteAddr,
+			)
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
 		// Log headers for debugging
-		log.Printf("Webhook: Headers received:")
+		headers := make(map[string][]string)
 		for name, values := range r.Header {
-			log.Printf("  %s: %v", name, values)
+			headers[name] = values
 		}
+		slog.Debug("webhook headers received", "headers", headers)
 
 		// Read and log raw body
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
-			log.Printf("Webhook: Error reading body: %v", err)
+			slog.Error("webhook body read failed", "error", err)
 			http.Error(w, "Error reading body", http.StatusBadRequest)
 			return
 		}
-		log.Printf("Webhook: Raw body received: %s", string(body))
+		slog.Debug("webhook body received", "body", string(body))
 
 		// Parse notification
 		var notification CloudinaryNotification
 		if err := json.Unmarshal(body, &notification); err != nil {
-			log.Printf("Webhook: Error parsing JSON: %v", err)
+			slog.Error("webhook json parse failed", "error", err)
 			http.Error(w, "Invalid JSON", http.StatusBadRequest)
 			return
 		}
 
-		log.Printf("Webhook: Parsed notification: %+v", notification)
+		slog.Info("webhook notification received", 
+			"type", notification.NotificationType,
+			"resource_type", notification.ResourceType,
+			"public_id", notification.PublicID,
+		)
 
 		// Validate required fields
 		if notification.ResourceType == "" || notification.Type == "" {
-			log.Printf("Webhook: Missing required fields")
+			slog.Error("webhook missing required fields",
+				"resource_type", notification.ResourceType,
+				"type", notification.Type,
+			)
 			http.Error(w, "Missing required fields", http.StatusBadRequest)
 			return
 		}
@@ -222,30 +235,29 @@ func main() {
 		// Handle different notification types
 		switch notification.NotificationType {
 		case "upload":
-			log.Printf("Webhook: Handling upload notification for %s", notification.PublicID)
+			slog.Info("handling upload notification", "public_id", notification.PublicID)
 			if err := updateCache(cloudName, apiKey, apiSecret); err != nil {
-				log.Printf("Webhook: Failed to update cache: %v", err)
+				slog.Error("cache update failed", "error", err)
 				http.Error(w, "Failed to update cache", http.StatusInternalServerError)
 				return
 			}
-			log.Printf("Webhook: Cache updated successfully for upload: %s", notification.PublicID)
+			slog.Info("cache updated after upload", "public_id", notification.PublicID)
 
 		case "delete":
-			log.Printf("Webhook: Handling delete notification")
+			slog.Info("handling delete notification")
 			if err := updateCache(cloudName, apiKey, apiSecret); err != nil {
-				log.Printf("Webhook: Failed to update cache: %v", err)
+				slog.Error("cache update failed", "error", err)
 				http.Error(w, "Failed to update cache", http.StatusInternalServerError)
 				return
 			}
-			log.Printf("Webhook: Cache updated successfully after delete")
+			slog.Info("cache updated after delete")
 
 		default:
-			log.Printf("Webhook: Unhandled notification type: %s", notification.NotificationType)
+			slog.Warn("unhandled notification type", "type", notification.NotificationType)
 		}
 
-		// Send 200 OK response
 		w.WriteHeader(http.StatusOK)
-		log.Printf("Webhook: Successfully processed request")
+		slog.Info("webhook processed successfully")
 	}))
 
 	// Health check endpoint
@@ -272,11 +284,12 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "80"  // Changed to 80 for direct access
+		port = "80"
 	}
 
-	log.Printf("Server starting on port %s", port)
+	slog.Info("server starting", "port", port)
 	if err := http.ListenAndServe(":"+port, handler); err != nil {
-		log.Fatal(err)
+		slog.Error("server failed to start", "error", err)
+		os.Exit(1)
 	}
 } 

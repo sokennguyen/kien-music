@@ -24,16 +24,6 @@ func init() {
 	log.Println("Server initializing...")
 }
 
-// Helper function to format log messages consistently
-func logf(format string, v ...interface{}) {
-	// Add newline if not present
-	if len(format) == 0 || format[len(format)-1] != '\n' {
-		format += "\n"
-	}
-	// Use log.Printf instead of fmt.Printf to ensure proper journald integration
-	log.Printf(format, v...)
-}
-
 type CloudinaryResource struct {
 	AssetID  string `json:"asset_id"`
 	PublicID string `json:"public_id"`
@@ -74,17 +64,17 @@ var (
 
 // Fetch tracks from Cloudinary
 func fetchTracks(cloudName, apiKey, apiSecret string) (*CloudinaryResponse, error) {
-	logf("Fetching tracks from Cloudinary (cloud_name: %s)", cloudName)
+	log.Printf("Fetching tracks from Cloudinary (cloud_name: %s)", cloudName)
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
 
 	url := fmt.Sprintf("https://api.cloudinary.com/v1_1/%s/resources/video", cloudName)
-	logf("Making request to: %s", url)
+	log.Printf("Making request to: %s", url)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		logf("Error creating request: %v", err)
+		log.Printf("Error creating request: %v", err)
 		return nil, err
 	}
 
@@ -93,61 +83,68 @@ func fetchTracks(cloudName, apiKey, apiSecret string) (*CloudinaryResponse, erro
 	q.Add("prefix", "my-music/")
 	q.Add("max_results", "100")
 	req.URL.RawQuery = q.Encode()
-	logf("Full request URL: %s", req.URL.String())
+	log.Printf("Full request URL: %s", req.URL.String())
 
 	req.SetBasicAuth(apiKey, apiSecret)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		logf("Error making request: %v", err)
+		log.Printf("Error making request: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	logf("Cloudinary API response status: %s", resp.Status)
+	log.Printf("Cloudinary API response status: %s", resp.Status)
 	
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		logf("Error reading response body: %v", err)
+		log.Printf("Error reading response body: %v", err)
 		return nil, err
 	}
-	logf("Response body: %s", string(body))
+	log.Printf("Response body: %s", string(body))
 
 	var result CloudinaryResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		logf("Error parsing JSON response: %v", err)
+		log.Printf("Error parsing JSON response: %v", err)
 		return nil, err
 	}
 
-	logf("Successfully fetched %d tracks", len(result.Resources))
+	log.Printf("Successfully fetched %d tracks", len(result.Resources))
 	return &result, nil
 }
 
 // Update cache
 func updateCache(cloudName, apiKey, apiSecret string) error {
-	logf("Starting cache update...")
+	log.Println("Starting cache update...")
 	tracks, err := fetchTracks(cloudName, apiKey, apiSecret)
 	if err != nil {
-		logf("Cache update failed: %v", err)
+		log.Printf("Cache update failed: %v", err)
 		return err
 	}
 
 	trackCacheMux.Lock()
 	defer trackCacheMux.Unlock()
 	
-	logf("Previous cache had %d tracks", len(trackCache.Resources))
+	log.Printf("Previous cache had %d tracks", len(trackCache.Resources))
 	trackCache = *tracks
-	logf("New cache has %d tracks", len(tracks.Resources))
+	log.Printf("New cache has %d tracks", len(tracks.Resources))
 
 	lastFetchMux.Lock()
 	lastFetchTime = time.Now()
 	lastFetchMux.Unlock()
 
-	logf("Cache update completed successfully")
+	log.Println("Cache update completed successfully")
 	return nil
 }
 
 func main() {
+	// Set up logging to stdout
+	log.SetOutput(os.Stdout)
+	log.SetFlags(log.Ldate | log.Ltime)
+	
+	// Log startup
+	log.Println("Server starting up...")
+
 	if err := godotenv.Load(); err != nil {
 		log.Println("Warning: .env file not found")
 	}
@@ -156,12 +153,15 @@ func main() {
 	apiKey := os.Getenv("CLOUDINARY_API_KEY")
 	apiSecret := os.Getenv("CLOUDINARY_API_SECRET")
 
+	log.Printf("Cloudinary config: cloud_name=%s, api_key=%s", cloudName, apiKey)
+
 	if cloudName == "" || apiKey == "" || apiSecret == "" {
 		log.Println("Fatal: Required environment variables not found")
 		os.Exit(1)
 	}
 
 	// Initial cache population
+	log.Println("Populating initial cache...")
 	if err := updateCache(cloudName, apiKey, apiSecret); err != nil {
 		log.Printf("Warning: Initial cache population failed: %v", err)
 	}
@@ -197,6 +197,7 @@ func main() {
 		response := trackCache
 		trackCacheMux.RUnlock()
 
+		log.Printf("Returning %d tracks from cache", len(response.Resources))
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 	}))

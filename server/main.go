@@ -262,14 +262,18 @@ func main() {
 
 	handler := c.Handler(mux)
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "80"
-	}
+	// Start HTTP server on port 80
+	go func() {
+		logf("HTTP Server starting on port 80")
+		if err := http.ListenAndServe(":80", handler); err != nil {
+			logf("HTTP Server failed: %v", err)
+		}
+	}()
 
-	logf("Server starting on port %s", port)
-	if err := http.ListenAndServe(":"+port, handler); err != nil {
-		logf("Fatal: Server failed to start: %v", err)
+	// Start HTTPS server on port 443
+	logf("HTTPS Server starting on port 443")
+	if err := http.ListenAndServeTLS(":443", "/etc/letsencrypt/live/music-meta.nskien.com/fullchain.pem", "/etc/letsencrypt/live/music-meta.nskien.com/privkey.pem", handler); err != nil {
+		logf("Fatal: HTTPS Server failed to start: %v", err)
 		os.Exit(1)
 	}
 } 

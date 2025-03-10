@@ -145,25 +145,6 @@ func main() {
 			return
 		}
 
-		// Verify webhook signature
-		timestamp := r.Header.Get("X-Cld-Timestamp")
-		signature := r.Header.Get("X-Cld-Signature")
-		if timestamp == "" || signature == "" {
-			http.Error(w, "Missing required headers", http.StatusBadRequest)
-			return
-		}
-
-		// Calculate expected signature
-		payload := timestamp + webhookSecret
-		h := sha1.New()
-		h.Write([]byte(payload))
-		expectedSignature := hex.EncodeToString(h.Sum(nil))
-
-		if signature != expectedSignature {
-			http.Error(w, "Invalid signature", http.StatusUnauthorized)
-			return
-		}
-
 		// Parse notification
 		var notification CloudinaryNotification
 		if err := json.NewDecoder(r.Body).Decode(&notification); err != nil {
@@ -181,6 +162,7 @@ func main() {
 				http.Error(w, "Failed to update cache", http.StatusInternalServerError)
 				return
 			}
+			log.Printf("Cache updated after new upload: %s", notification.PublicID)
 		}
 
 		w.WriteHeader(http.StatusOK)

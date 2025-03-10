@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Volume2, ArrowLeft, VolumeX, Music, Headphones } from 'lucide-react';
+import { Play, Pause, Volume2, ArrowLeft, VolumeX, Music, Headphones, Shuffle, SkipBack, SkipForward, Repeat } from 'lucide-react';
 import ReactHowler from 'react-howler';
 import { Cloudinary } from '@cloudinary/url-gen';
 import axios from 'axios';
+import { Howl } from 'howler';
 
 // Initialize Cloudinary with your cloud name and API key
 const CLOUDINARY_CLOUD_NAME = 'drenighdk';
@@ -93,53 +94,57 @@ const formatTime = (timeInSeconds) => {
 };
 
 const HomeScreen = ({ onNavigate, trackCounts }) => (
-  <div className="flex flex-col h-full p-8 font-sans">
-    <div className="flex justify-between items-center mb-16">
-      <div className="text-2xl flex items-center">
-        <a 
-          href="#spotify" 
-          className="mr-8 text-gray-700 hover:text-green-500 transition-colors duration-300"
-          title="Spotify"
-        >
-          <Music className="w-8 h-8" />
-        </a>
-        <a 
-          href="#soundcloud" 
-          className="text-gray-700 hover:text-orange-500 transition-colors duration-300"
-          title="SoundCloud"
-        >
-          <Headphones className="w-8 h-8" />
-        </a>
+  <div className="flex flex-col h-full">
+    <div className="sticky top-0 bg-white z-10 p-4 md:p-8 border-b">
+      <div className="flex justify-between items-center">
+        <div className="text-xl md:text-2xl flex items-center">
+          <a 
+            href="#spotify" 
+            className="mr-4 md:mr-8 text-gray-700 hover:text-green-500 transition-colors duration-300"
+            title="Spotify"
+          >
+            <Music className="w-6 h-6 md:w-8 md:h-8" />
+          </a>
+          <a 
+            href="#soundcloud" 
+            className="text-gray-700 hover:text-orange-500 transition-colors duration-300"
+            title="SoundCloud"
+          >
+            <Headphones className="w-6 h-6 md:w-8 md:h-8" />
+          </a>
+        </div>
+        <h1 className="text-2xl md:text-4xl font-bold">Kien's Homemade Music</h1>
       </div>
-      <h1 className="text-4xl font-bold">Kien's Homemade Music</h1>
     </div>
     
-    <div className="grid grid-cols-3 gap-8">
-      <div 
-        className="flex flex-col items-start cursor-pointer" 
-        onClick={() => onNavigate('dailySessions')}
-      >
-        <div className="w-64 h-64 rounded-lg border-4 border-gray-300 mb-4"></div>
-        <h2 className="text-2xl font-bold text-left">Daily Sessions</h2>
-        <p className="text-lg text-left">{trackCounts.dailySessions} Tracks</p>
-      </div>
-      
-      <div 
-        className="flex flex-col items-start cursor-pointer"
-        onClick={() => onNavigate('remakes')}
-      >
-        <div className="w-64 h-64 rounded-lg border-4 border-gray-300 mb-4"></div>
-        <h2 className="text-2xl font-bold text-left">Remakes</h2>
-        <p className="text-lg text-left">{trackCounts.remakes} Tracks</p>
-      </div>
-      
-      <div 
-        className="flex flex-col items-start cursor-pointer"
-        onClick={() => onNavigate('originals')}
-      >
-        <div className="w-64 h-64 rounded-lg border-4 border-gray-300 mb-4"></div>
-        <h2 className="text-2xl font-bold text-left">Full Originals</h2>
-        <p className="text-lg text-left">{trackCounts.originals > 0 ? `${trackCounts.originals} Tracks` : "Work in progress, just wait"}</p>
+    <div className="flex-1 overflow-y-auto p-4 md:p-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
+        <div 
+          className="flex flex-col items-start cursor-pointer" 
+          onClick={() => onNavigate('dailySessions')}
+        >
+          <div className="w-full aspect-square rounded-lg border-4 border-gray-300 mb-4"></div>
+          <h2 className="text-xl md:text-2xl font-bold text-left">Daily Sessions</h2>
+          <p className="text-base md:text-lg text-left">{trackCounts.dailySessions} Tracks</p>
+        </div>
+        
+        <div 
+          className="flex flex-col items-start cursor-pointer"
+          onClick={() => onNavigate('remakes')}
+        >
+          <div className="w-full aspect-square rounded-lg border-4 border-gray-300 mb-4"></div>
+          <h2 className="text-xl md:text-2xl font-bold text-left">Remakes</h2>
+          <p className="text-base md:text-lg text-left">{trackCounts.remakes} Tracks</p>
+        </div>
+        
+        <div 
+          className="flex flex-col items-start cursor-pointer md:col-span-2 lg:col-span-1"
+          onClick={() => onNavigate('originals')}
+        >
+          <div className="w-full aspect-square rounded-lg border-4 border-gray-300 mb-4"></div>
+          <h2 className="text-xl md:text-2xl font-bold text-left">Full Originals</h2>
+          <p className="text-base md:text-lg text-left">{trackCounts.originals > 0 ? `${trackCounts.originals} Tracks` : "Work in progress, just wait"}</p>
+        </div>
       </div>
     </div>
   </div>
@@ -158,57 +163,100 @@ const PlayerControls = ({
   onVolumeChange, 
   onMuteToggle,
   isSeeking,
-  currentTrack
+  currentTrack,
+  isDailySession,
+  onPrevTrack,
+  onNextTrack,
+  isShuffled,
+  onShuffleToggle,
+  isRepeating,
+  onRepeatToggle
 }) => (
-  <div className="p-8 flex flex-col border-t border-gray-300 bg-white">
+  <div className="p-4 md:p-8 flex flex-col border-t border-gray-300 bg-white space-y-4">
     {currentTrack && (
-      <div className="text-left mb-4 w-full">
-        <h3 className="text-2xl font-bold text-blue-600">
-          {currentTrack.title || currentTrack.date}
+      <div className="text-left mb-2 md:mb-4 w-full">
+        <h3 className="text-lg md:text-2xl font-bold text-blue-600 truncate">
+          {isDailySession ? currentTrack.date : currentTrack.title}
         </h3>
       </div>
     )}
-    <div className="flex items-center justify-center w-full">
-      <button 
-        onClick={onPlayPause} 
-        className="mr-8 flex-shrink-0 cursor-pointer hover:opacity-80 active:opacity-60"
-      >
-        {isPlaying ? (
-          <Pause className="w-16 h-16 text-blue-500" />
-        ) : (
-          <Play className="w-16 h-16 text-blue-500" />
-        )}
-      </button>
+    
+    {/* Progress Bar */}
+    <div className="flex items-center space-x-2">
+      <span className="w-12 text-sm md:text-base text-center">{formatTime(currentTime)}</span>
+      <input 
+        type="range" 
+        min="0" 
+        max={duration || 100} 
+        value={currentTime || 0}
+        onChange={onSeek}
+        onMouseDown={onSeekStart}
+        onMouseUp={onSeekEnd}
+        onTouchStart={onSeekStart}
+        onTouchEnd={onSeekEnd}
+        className={`flex-grow h-2 cursor-pointer ${isSeeking ? 'seeking' : ''}`}
+        step="0.1"
+      />
+      <span className="w-12 text-sm md:text-base text-center">{formatTime(duration)}</span>
+    </div>
+    
+    {/* Controls Container */}
+    <div className="flex justify-between items-center px-4">
+      {/* Empty div for spacing */}
+      <div className="hidden md:block w-24"></div>
       
-      <span className="mr-4 w-24 text-right flex-shrink-0 text-xl">{formatTime(currentTime)}</span>
-      
-      <div className="flex-grow mx-8">
-        <input 
-          type="range" 
-          min="0" 
-          max={duration || 100} 
-          value={currentTime || 0}
-          onChange={onSeek}
-          onMouseDown={onSeekStart}
-          onMouseUp={onSeekEnd}
-          onTouchStart={onSeekStart}
-          onTouchEnd={onSeekEnd}
-          className={`w-full cursor-pointer h-3 ${isSeeking ? 'seeking' : ''}`}
-          step="0.1"
-        />
+      {/* Centered Playback Controls */}
+      <div className="flex items-center justify-center space-x-4 md:space-x-6">
+        <button 
+          onClick={onShuffleToggle}
+          className={`cursor-pointer hover:opacity-80 active:opacity-60 ${isShuffled ? 'text-blue-500' : 'text-gray-400'}`}
+        >
+          <Shuffle className="w-5 h-5 md:w-6 md:h-6" />
+        </button>
+        
+        <button 
+          onClick={onPrevTrack}
+          className="cursor-pointer hover:opacity-80 active:opacity-60"
+        >
+          <SkipBack className="w-7 h-7 md:w-8 md:h-8" />
+        </button>
+        
+        <button 
+          onClick={onPlayPause} 
+          className="flex-shrink-0 cursor-pointer hover:opacity-80 active:opacity-60"
+        >
+          {isPlaying ? (
+            <Pause className="w-10 h-10 md:w-12 md:h-12 text-blue-500" />
+          ) : (
+            <Play className="w-10 h-10 md:w-12 md:h-12 text-blue-500" />
+          )}
+        </button>
+        
+        <button 
+          onClick={onNextTrack}
+          className="cursor-pointer hover:opacity-80 active:opacity-60"
+        >
+          <SkipForward className="w-7 h-7 md:w-8 md:h-8" />
+        </button>
+        
+        <button 
+          onClick={onRepeatToggle}
+          className={`cursor-pointer hover:opacity-80 active:opacity-60 ${isRepeating ? 'text-blue-500' : 'text-gray-400'}`}
+        >
+          <Repeat className="w-5 h-5 md:w-6 md:h-6" />
+        </button>
       </div>
-      
-      <span className="w-24 flex-shrink-0 text-xl">{formatTime(duration)}</span>
-      
-      <div className="flex items-center ml-4">
+
+      {/* Right-aligned Volume Controls */}
+      <div className="hidden md:flex items-center space-x-2 w-32">
         <button 
           onClick={onMuteToggle} 
-          className="flex-shrink-0 mr-4 cursor-pointer hover:opacity-80 active:opacity-60"
+          className="flex-shrink-0 cursor-pointer hover:opacity-80 active:opacity-60"
         >
           {isMuted ? (
-            <VolumeX className="w-12 h-12" />
+            <VolumeX className="w-5 h-5" />
           ) : (
-            <Volume2 className="w-12 h-12" />
+            <Volume2 className="w-5 h-5" />
           )}
         </button>
         <input 
@@ -218,7 +266,7 @@ const PlayerControls = ({
           step="0.01"
           value={volume}
           onChange={onVolumeChange}
-          className="w-32 cursor-pointer h-3"
+          className="w-24 h-1.5 cursor-pointer"
         />
       </div>
     </div>
@@ -226,25 +274,25 @@ const PlayerControls = ({
 );
 
 const TrackList = ({ tracks, currentTrackIndex, isPlaying, onTrackSelect, isDailySession }) => (
-  <div className="w-2/3 flex flex-col overflow-y-auto">
+  <div className="w-full md:w-2/3 flex flex-col overflow-y-auto">
     {tracks.map((track, index) => (
       <div 
         key={track.id} 
-        className={`border-b border-gray-300 py-8 px-8 flex justify-between items-center cursor-pointer hover:bg-blue-100 ${currentTrackIndex === index ? 'bg-blue-50' : ''}`}
+        className={`border-b border-gray-300 py-4 md:py-8 px-4 md:px-8 flex justify-between items-center cursor-pointer hover:bg-blue-100 ${currentTrackIndex === index ? 'bg-blue-50' : ''}`}
         onClick={() => onTrackSelect(index)}
       >
         <div className="flex-grow text-left">
           {isDailySession ? (
-            <p className="text-xl font-medium text-left">{track.date}</p>
+            <p className="text-base md:text-xl font-medium text-left truncate">{track.date}</p>
           ) : (
-            <p className="text-xl font-medium text-left">{track.title}</p>
+            <p className="text-base md:text-xl font-medium text-left truncate">{track.title}</p>
           )}
         </div>
         <div className="ml-4">
           {currentTrackIndex === index && isPlaying ? (
-            <Pause className="w-10 h-10 text-blue-500" />
+            <Pause className="w-8 h-8 md:w-10 md:h-10 text-blue-500" />
           ) : (
-            <Play className="w-10 h-10" />
+            <Play className="w-8 h-8 md:w-10 md:h-10" />
           )}
         </div>
       </div>
@@ -264,18 +312,18 @@ const CategoryScreen = ({
   isDailySession = false
 }) => (
   <div className="flex flex-col h-full">
-    <div className="flex flex-1 overflow-hidden">
-      <div className="w-1/3 p-8 border-r border-gray-300 flex flex-col items-center">
+    <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+      <div className="w-full md:w-1/3 p-4 md:p-8 border-b md:border-b-0 md:border-r border-gray-300 flex flex-col items-center">
         <button 
-          className="mb-8 flex items-center text-blue-500 cursor-pointer hover:opacity-80 active:opacity-60 self-start" 
+          className="mb-4 md:mb-8 flex items-center text-blue-500 cursor-pointer hover:opacity-80 active:opacity-60 self-start" 
           onClick={onNavigateBack}
         >
-          <ArrowLeft className="w-8 h-8 mr-2" />
-          <span className="text-xl">Back</span>
+          <ArrowLeft className="w-6 h-6 md:w-8 md:h-8 mr-2" />
+          <span className="text-lg md:text-xl">Back</span>
         </button>
-        <div className="w-full aspect-square rounded-lg border-4 border-gray-300 mb-8"></div>
-        <h2 className="text-3xl font-bold text-center">{categoryTitle}</h2>
-        <p className="text-xl text-center">{tracks.length} Tracks</p>
+        <div className="w-48 md:w-full max-w-sm aspect-square rounded-lg border-4 border-gray-300 mb-4 md:mb-8"></div>
+        <h2 className="text-2xl md:text-3xl font-bold text-center">{categoryTitle}</h2>
+        <p className="text-lg md:text-xl text-center">{tracks.length} Tracks</p>
       </div>
       
       <TrackList 
@@ -291,7 +339,7 @@ const CategoryScreen = ({
       {playerControls}
       
       {audioError && (
-        <div className="p-4 text-xl text-red-500 text-center border-t border-red-200 bg-red-50">
+        <div className="p-4 text-base md:text-xl text-red-500 text-center border-t border-red-200 bg-red-50">
           Error loading audio. Please check your connection or try another track.
         </div>
       )}
@@ -305,10 +353,13 @@ const MusicPlayer = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
-  const [volume, setVolume] = useState(1.0);
+  const [volume, setVolume] = useState(0.5);
   const [isMuted, setIsMuted] = useState(false);
   const [audioError, setAudioError] = useState(false);
   const [isSeeking, setIsSeeking] = useState(false);
+  const [isShuffled, setIsShuffled] = useState(false);
+  const [isRepeating, setIsRepeating] = useState(false);
+  const [shuffledIndices, setShuffledIndices] = useState([]);
   
   // Track data states
   const [dailySessionsTracks, setDailySessionsTracks] = useState([]);
@@ -329,7 +380,7 @@ const MusicPlayer = () => {
         setFetchError(null);
 
         // Fetch from our Go server
-        const response = await axios.get('http://107.191.40.30/api/tracks');
+        const response = await axios.get('https://music-meta.nskien.com/api/tracks');
 
         if (!response.data || !response.data.resources) {
           throw new Error('Invalid response from server');
@@ -347,15 +398,12 @@ const MusicPlayer = () => {
           // Extract filename from public_id (remove folder prefix)
           const filename = resource.public_id.split('/').pop();
           
-          // Create track object with Cloudinary URL
+          // Create track object with basic Cloudinary URL
           const track = {
             id: resource.asset_id,
             filename,
-            // Use the Cloudinary URL-Gen SDK to create the audio URL
-            audio: cld.video(resource.public_id)
-              .format('mp3')
-              .delivery('upload')
-              .toURL()
+            // Use simple direct URL
+            audio: `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/video/upload/${resource.public_id}.mp3`
           };
 
           // Add to appropriate category based on filename pattern
@@ -364,7 +412,7 @@ const MusicPlayer = () => {
               get() { return formatRemakeTitle(this.filename); }
             });
             remakes.push(track);
-          } else if (/^\d{4}-\d{2}-\d{2}\.mp3$/.test(filename)) {
+          } else if (/^\d{4}-\d{2}-\d{2}/.test(filename)) {
             Object.defineProperty(track, 'date', {
               get() { return formatDateFromFilename(this.filename); }
             });
@@ -379,6 +427,10 @@ const MusicPlayer = () => {
 
         // Sort daily sessions by date (newest first)
         dailySessions.sort((a, b) => b.filename.localeCompare(a.filename));
+        
+        // Sort remakes and originals alphabetically by title
+        remakes.sort((a, b) => a.title.localeCompare(b.title));
+        originals.sort((a, b) => a.title.localeCompare(b.title));
 
         setDailySessionsTracks(dailySessions);
         setRemakesTracks(remakes);
@@ -395,7 +447,7 @@ const MusicPlayer = () => {
     fetchTracks();
   }, []);
   
-  // Get current category tracks based on screen
+  // Get current category tracks
   const getCurrentTracks = () => {
     switch(currentScreen) {
       case 'dailySessions':
@@ -419,6 +471,96 @@ const MusicPlayer = () => {
     originals: originalsTracks.length
   };
   
+  // Shuffle array utility function
+  const shuffleArray = (array) => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
+  // Update shuffled indices when tracks change or shuffle is toggled
+  useEffect(() => {
+    if (isShuffled) {
+      const tracks = getCurrentTracks();
+      const indices = Array.from({ length: tracks.length }, (_, i) => i);
+      setShuffledIndices(shuffleArray(indices));
+    } else {
+      setShuffledIndices([]);
+    }
+  }, [isShuffled, currentScreen, dailySessionsTracks, remakesTracks, originalsTracks]);
+
+  const getNextTrackIndex = () => {
+    const tracks = getCurrentTracks();
+    if (isShuffled) {
+      const currentShuffledIndex = shuffledIndices.indexOf(currentTrackIndex);
+      if (currentShuffledIndex < shuffledIndices.length - 1) {
+        return shuffledIndices[currentShuffledIndex + 1];
+      }
+      return -1;
+    } else {
+      return currentTrackIndex < tracks.length - 1 ? currentTrackIndex + 1 : -1;
+    }
+  };
+
+  const getPrevTrackIndex = () => {
+    if (isShuffled) {
+      const currentShuffledIndex = shuffledIndices.indexOf(currentTrackIndex);
+      if (currentShuffledIndex > 0) {
+        return shuffledIndices[currentShuffledIndex - 1];
+      }
+      return -1;
+    } else {
+      return currentTrackIndex > 0 ? currentTrackIndex - 1 : -1;
+    }
+  };
+
+  const handleNextTrack = () => {
+    const nextIndex = getNextTrackIndex();
+    if (nextIndex !== -1) {
+      setCurrentTrackIndex(nextIndex);
+      setIsPlaying(true);
+    } else if (isRepeating) {
+      // If repeating and at the end, go back to the first track
+      setCurrentTrackIndex(isShuffled ? shuffledIndices[0] : 0);
+      setIsPlaying(true);
+    } else {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    }
+  };
+
+  const handlePrevTrack = () => {
+    const prevIndex = getPrevTrackIndex();
+    if (prevIndex !== -1) {
+      setCurrentTrackIndex(prevIndex);
+      setIsPlaying(true);
+    }
+  };
+
+  const handleOnEnd = () => {
+    if (isRepeating && !isShuffled) {
+      // Single track repeat
+      if (playerRef.current) {
+        playerRef.current.seek(0);
+        setIsPlaying(true);
+      }
+    } else {
+      // Move to next track (handles both normal and shuffled playback)
+      handleNextTrack();
+    }
+  };
+
+  const toggleShuffle = () => {
+    setIsShuffled(!isShuffled);
+  };
+
+  const toggleRepeat = () => {
+    setIsRepeating(!isRepeating);
+  };
+
   // Update seek position using requestAnimationFrame
   const updateSeekPosition = () => {
     if (playerRef.current && isPlaying && !isSeeking) {
@@ -500,17 +642,6 @@ const MusicPlayer = () => {
     }
   };
 
-  const handleOnEnd = () => {
-    if (currentTrackIndex < currentTracks.length - 1) {
-      setCurrentTrackIndex(currentTrackIndex + 1);
-      // Keep playing
-      setIsPlaying(true);
-    } else {
-      setIsPlaying(false);
-      setCurrentTime(0);
-    }
-  };
-
   const handleVolumeChange = (e) => {
     const newVolume = parseFloat(e.target.value);
     setVolume(newVolume);
@@ -559,6 +690,13 @@ const MusicPlayer = () => {
       onMuteToggle={toggleMute}
       isSeeking={isSeeking}
       currentTrack={currentTrack}
+      isDailySession={currentScreen === 'dailySessions'}
+      onPrevTrack={handlePrevTrack}
+      onNextTrack={handleNextTrack}
+      isShuffled={isShuffled}
+      onShuffleToggle={toggleShuffle}
+      isRepeating={isRepeating}
+      onRepeatToggle={toggleRepeat}
     />
   );
 
@@ -623,8 +761,10 @@ const MusicPlayer = () => {
 
 const App = () => {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center">
-      <MusicPlayer />
+    <div className="min-h-screen w-full flex items-center justify-center p-0 md:p-4">
+      <div className="w-full h-screen md:max-w-6xl mx-auto md:h-screen md:max-h-[900px] md:border-4 md:border-gray-300 md:rounded-3xl overflow-hidden flex flex-col bg-white">
+        <MusicPlayer />
+      </div>
     </div>
   );
 };

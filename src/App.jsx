@@ -96,52 +96,56 @@ const formatTime = (timeInSeconds) => {
 const HomeScreen = ({ onNavigate, trackCounts }) => (
   <div className="flex flex-col h-full">
     <div className="sticky top-0 bg-white z-10 p-4 md:p-8 border-b">
-      <div className="flex justify-between items-center">
-        <div className="text-xl md:text-2xl flex items-center">
-          <a 
-            href="#spotify" 
-            className="mr-4 md:mr-8 text-gray-700 hover:text-green-500 transition-colors duration-300"
-            title="Spotify"
-          >
-            <Music className="w-6 h-6 md:w-8 md:h-8" />
-          </a>
-          <a 
-            href="#soundcloud" 
-            className="text-gray-700 hover:text-orange-500 transition-colors duration-300"
-            title="SoundCloud"
-          >
-            <Headphones className="w-6 h-6 md:w-8 md:h-8" />
-          </a>
-        </div>
-        <h1 className="text-2xl md:text-4xl font-bold">Kien's Homemade Music</h1>
+      <div className="flex justify-end items-center">
+        <h1 className="text-2xl md:text-4xl font-bold">
+          Kien's Homemade Music
+        </h1>
       </div>
     </div>
     
-    <div className="flex-1 overflow-y-auto p-4 md:p-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
+    <div className="flex-1 overflow-y-auto p-4 md:p-8 flex items-center">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8 w-full">
         <div 
-          className="flex flex-col items-start cursor-pointer" 
+          className="flex flex-col items-start cursor-pointer transform transition-all duration-300 hover:scale-105" 
           onClick={() => onNavigate('dailySessions')}
         >
-          <div className="w-full aspect-square rounded-lg border-4 border-gray-300 mb-4"></div>
+          <div className="w-full aspect-square rounded-lg shadow-xl overflow-hidden mb-4">
+            <img 
+              src="/images/daily-sessions-cover.jpeg" 
+              alt="Daily Sessions"
+              className="w-full h-full object-cover"
+            />
+          </div>
           <h2 className="text-xl md:text-2xl font-bold text-left">Daily Sessions</h2>
           <p className="text-base md:text-lg text-left">{trackCounts.dailySessions} Tracks</p>
         </div>
         
         <div 
-          className="flex flex-col items-start cursor-pointer"
+          className="flex flex-col items-start cursor-pointer transform transition-all duration-300 hover:scale-105"
           onClick={() => onNavigate('remakes')}
         >
-          <div className="w-full aspect-square rounded-lg border-4 border-gray-300 mb-4"></div>
+          <div className="w-full aspect-square rounded-lg shadow-xl overflow-hidden mb-4">
+            <img 
+              src="/images/remakes-cover.png" 
+              alt="Remakes"
+              className="w-full h-full object-cover"
+            />
+          </div>
           <h2 className="text-xl md:text-2xl font-bold text-left">Remakes</h2>
           <p className="text-base md:text-lg text-left">{trackCounts.remakes} Tracks</p>
         </div>
         
         <div 
-          className="flex flex-col items-start cursor-pointer md:col-span-2 lg:col-span-1"
+          className="flex flex-col items-start cursor-pointer md:col-span-2 lg:col-span-1 transform transition-all duration-300 hover:scale-105"
           onClick={() => onNavigate('originals')}
         >
-          <div className="w-full aspect-square rounded-lg border-4 border-gray-300 mb-4"></div>
+          <div className="w-full aspect-square rounded-lg shadow-xl overflow-hidden mb-4">
+            <img 
+              src="/images/originals-cover.png" 
+              alt="Full Originals"
+              className="w-full h-full object-cover"
+            />
+          </div>
           <h2 className="text-xl md:text-2xl font-bold text-left">Full Originals</h2>
           <p className="text-base md:text-lg text-left">{trackCounts.originals > 0 ? `${trackCounts.originals} Tracks` : "Work in progress, just wait"}</p>
         </div>
@@ -174,8 +178,8 @@ const PlayerControls = ({
 }) => (
   <div className="p-4 md:p-8 flex flex-col border-t border-gray-300 bg-white space-y-4">
     {currentTrack && (
-      <div className="text-left mb-2 md:mb-4 w-full">
-        <h3 className="text-lg md:text-2xl font-bold text-blue-600 truncate">
+      <div className="text-center mb-2 md:mb-4 w-full">
+        <h3 className="text-lg md:text-2xl font-bold text-orange-600 truncate px-4">
           {isDailySession ? currentTrack.date : currentTrack.title}
         </h3>
       </div>
@@ -209,7 +213,7 @@ const PlayerControls = ({
       <div className="flex items-center justify-center space-x-4 md:space-x-6">
         <button 
           onClick={onShuffleToggle}
-          className={`cursor-pointer hover:opacity-80 active:opacity-60 ${isShuffled ? 'text-blue-500' : 'text-gray-400'}`}
+          className={`cursor-pointer hover:opacity-80 active:opacity-60 ${isShuffled ? 'text-orange-500' : 'text-gray-400'}`}
         >
           <Shuffle className="w-5 h-5 md:w-6 md:h-6" />
         </button>
@@ -226,9 +230,9 @@ const PlayerControls = ({
           className="flex-shrink-0 cursor-pointer hover:opacity-80 active:opacity-60"
         >
           {isPlaying ? (
-            <Pause className="w-10 h-10 md:w-12 md:h-12 text-blue-500" />
+            <Pause className="w-10 h-10 md:w-12 md:h-12 text-orange-500" />
           ) : (
-            <Play className="w-10 h-10 md:w-12 md:h-12 text-blue-500" />
+            <Play className="w-10 h-10 md:w-12 md:h-12 text-orange-500" />
           )}
         </button>
         
@@ -241,7 +245,7 @@ const PlayerControls = ({
         
         <button 
           onClick={onRepeatToggle}
-          className={`cursor-pointer hover:opacity-80 active:opacity-60 ${isRepeating ? 'text-blue-500' : 'text-gray-400'}`}
+          className={`cursor-pointer hover:opacity-80 active:opacity-60 ${isRepeating ? 'text-orange-500' : 'text-gray-400'}`}
         >
           <Repeat className="w-5 h-5 md:w-6 md:h-6" />
         </button>
@@ -266,7 +270,7 @@ const PlayerControls = ({
           step="0.01"
           value={volume}
           onChange={onVolumeChange}
-          className="w-24 h-1.5 cursor-pointer"
+          className="w-24 h-1.5 cursor-pointer accent-orange-500"
         />
       </div>
     </div>
@@ -278,7 +282,7 @@ const TrackList = ({ tracks, currentTrackIndex, isPlaying, onTrackSelect, isDail
     {tracks.map((track, index) => (
       <div 
         key={track.id} 
-        className={`border-b border-gray-300 py-4 md:py-8 px-4 md:px-8 flex justify-between items-center cursor-pointer hover:bg-blue-100 ${currentTrackIndex === index ? 'bg-blue-50' : ''}`}
+        className={`border-b border-gray-300 py-4 md:py-8 px-4 md:px-8 flex justify-between items-center cursor-pointer hover:bg-orange-100 ${currentTrackIndex === index ? 'bg-orange-50' : ''}`}
         onClick={() => onTrackSelect(index)}
       >
         <div className="flex-grow text-left">
@@ -290,7 +294,7 @@ const TrackList = ({ tracks, currentTrackIndex, isPlaying, onTrackSelect, isDail
         </div>
         <div className="ml-4">
           {currentTrackIndex === index && isPlaying ? (
-            <Pause className="w-8 h-8 md:w-10 md:h-10 text-blue-500" />
+            <Pause className="w-8 h-8 md:w-10 md:h-10 text-orange-500" />
           ) : (
             <Play className="w-8 h-8 md:w-10 md:h-10" />
           )}
@@ -309,19 +313,26 @@ const CategoryScreen = ({
   playerControls,
   audioError,
   categoryTitle,
-  isDailySession = false
+  isDailySession = false,
+  currentScreen
 }) => (
   <div className="flex flex-col h-full">
     <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
       <div className="w-full md:w-1/3 p-4 md:p-8 border-b md:border-b-0 md:border-r border-gray-300 flex flex-col items-center">
         <button 
-          className="mb-4 md:mb-8 flex items-center text-blue-500 cursor-pointer hover:opacity-80 active:opacity-60 self-start" 
+          className="mb-4 md:mb-8 flex items-center text-orange-500 cursor-pointer hover:opacity-80 active:opacity-60 self-start" 
           onClick={onNavigateBack}
         >
           <ArrowLeft className="w-6 h-6 md:w-8 md:h-8 mr-2" />
           <span className="text-lg md:text-xl">Back</span>
         </button>
-        <div className="w-48 md:w-full max-w-sm aspect-square rounded-lg border-4 border-gray-300 mb-4 md:mb-8"></div>
+        <div className="w-48 md:w-full max-w-sm aspect-square rounded-lg shadow-xl overflow-hidden mb-4 md:mb-8">
+          <img 
+            src={`/images/${currentScreen === 'dailySessions' ? 'daily-sessions-cover.jpeg' : currentScreen === 'remakes' ? 'remakes-cover.png' : 'originals-cover.png'}`}
+            alt={categoryTitle}
+            className="w-full h-full object-cover"
+          />
+        </div>
         <h2 className="text-2xl md:text-3xl font-bold text-center">{categoryTitle}</h2>
         <p className="text-lg md:text-xl text-center">{tracks.length} Tracks</p>
       </div>
@@ -740,6 +751,7 @@ const MusicPlayer = () => {
             audioError={audioError}
             categoryTitle={getCategoryTitle()}
             isDailySession={currentScreen === 'dailySessions'}
+            currentScreen={currentScreen}
           />
           {currentTrack && (
             <ReactHowler
@@ -762,7 +774,7 @@ const MusicPlayer = () => {
 const App = () => {
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-0 md:p-4">
-      <div className="w-full h-screen md:max-w-6xl mx-auto md:h-screen md:max-h-[900px] md:border-4 md:border-gray-300 md:rounded-3xl overflow-hidden flex flex-col bg-white">
+      <div className="w-full h-screen md:max-w-6xl mx-auto md:h-[700px] md:border-4 md:border-gray-300 md:rounded-3xl overflow-hidden flex flex-col bg-white">
         <MusicPlayer />
       </div>
     </div>

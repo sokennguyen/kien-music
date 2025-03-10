@@ -346,9 +346,13 @@ func main() {
 		json.NewEncoder(w).Encode(response)
 	}))
 
-	// Start HTTP server on port 80
-	log.Println("=== HTTP Server starting on port 80 ===")
-	if err := http.ListenAndServe(":80", mux); err != nil {
+	// Start HTTP server on port from environment variable
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "80" // Default to 80 if not specified
+	}
+	log.Printf("=== HTTP Server starting on port %s ===", port)
+	if err := http.ListenAndServe(":"+port, mux); err != nil {
 		log.Printf("HTTP Server failed: %v", err)
 		os.Exit(1)
 	}

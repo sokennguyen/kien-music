@@ -9,8 +9,8 @@ WorkingDirectory=/root/music-server/server
 ExecStart=/root/music-server/server/music-server
 Restart=always
 RestartSec=5
-StandardOutput=append:/var/log/music-server.log
-StandardError=append:/var/log/music-server.log
+StandardOutput=journal
+StandardError=journal
 Environment=PORT=80
 Environment=CLOUDINARY_CLOUD_NAME=drenighdk
 Environment=CLOUDINARY_API_KEY=258123598675934

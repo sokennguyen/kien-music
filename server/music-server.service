@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/root/music-server/server
-ExecStart=/root/music-server/server/music-server
+ExecStart=/root/music-server/server/music-portfolio-server
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -15,6 +15,9 @@ Environment=PORT=80
 Environment=CLOUDINARY_CLOUD_NAME=drenighdk
 Environment=CLOUDINARY_API_KEY=258123598675934
 Environment=CLOUDINARY_API_SECRET=1rPYRCyxVPm9u8LoN5VPZkdu3LM
+# Ensure no output buffering
+Environment=PYTHONUNBUFFERED=1
+Environment=GOGC=off
 
 [Install]
 WantedBy=multi-user.target 

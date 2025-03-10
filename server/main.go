@@ -65,7 +65,28 @@ var (
 	trackCacheMux  sync.RWMutex
 	lastFetchTime  time.Time
 	lastFetchMux   sync.RWMutex
+	
+	// Cache to track recent webhook notifications
+	recentNotifications     = make(map[string]time.Time)
+	recentNotificationsMux  sync.RWMutex
 )
+
+// Cleanup old notifications periodically
+func cleanupOldNotifications() {
+	ticker := time.NewTicker(5 * time.Minute)
+	go func() {
+		for range ticker.C {
+			recentNotificationsMux.Lock()
+			now := time.Now()
+			for id, timestamp := range recentNotifications {
+				if now.Sub(timestamp) > 30*time.Second {
+					delete(recentNotifications, id)
+				}
+			}
+			recentNotificationsMux.Unlock()
+		}
+	}()
+}
 
 // Fetch tracks from Cloudinary
 func fetchTracks(cloudName, apiKey, apiSecret string) (*CloudinaryResponse, error) {
@@ -151,6 +172,9 @@ func updateCache(cloudName, apiKey, apiSecret string) error {
 }
 
 func main() {
+	// Start cleanup goroutine
+	cleanupOldNotifications()
+	
 	// Set up logging to stdout
 	log.SetOutput(os.Stdout)
 	log.SetFlags(log.Ldate | log.Ltime)
@@ -254,6 +278,23 @@ func main() {
 			return
 		}
 		log.Printf("Webhook: Parsed notification: %+v", notification)
+
+		// Check if we've recently processed a notification for this file
+		notificationKey := fmt.Sprintf("%s-%s", notification.PublicID, notification.NotificationType)
+		recentNotificationsMux.Lock()
+		lastNotification, exists := recentNotifications[notificationKey]
+		now := time.Now()
+		if exists && now.Sub(lastNotification) < 30*time.Second {
+			recentNotificationsMux.Unlock()
+			log.Printf("Webhook: Skipping duplicate notification for %s (type: %s)", notification.PublicID, notification.NotificationType)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			response := map[string]string{"status": "success", "message": "Webhook skipped (duplicate)"}
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		recentNotifications[notificationKey] = now
+		recentNotificationsMux.Unlock()
 
 		// Always update cache for any webhook call (upload, delete, etc.)
 		log.Printf("Webhook: Received %s notification for public_id: %s", notification.NotificationType, notification.PublicID)

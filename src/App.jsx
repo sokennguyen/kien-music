@@ -3,7 +3,6 @@ import { Play, Pause, Volume2, ArrowLeft, VolumeX, Music, Headphones, Shuffle, S
 import ReactHowler from 'react-howler';
 import { Cloudinary } from '@cloudinary/url-gen';
 import axios from 'axios';
-import { Howl } from 'howler';
 
 // Initialize Cloudinary with your cloud name and API key
 const CLOUDINARY_CLOUD_NAME = 'drenighdk';
@@ -633,8 +632,8 @@ const MusicPlayer = () => {
     }
     
     // Otherwise, change track and start playing
-    setCurrentTrackIndex(index);
-    setIsPlaying(true);
+      setCurrentTrackIndex(index);
+      setIsPlaying(true);
   };
 
   const togglePlayPause = () => {
@@ -735,7 +734,7 @@ const MusicPlayer = () => {
           <div className="text-center">
             <p className="text-2xl text-red-500 mb-4">{fetchError}</p>
             <p>Using fallback tracks instead.</p>
-          </div>
+      </div>
         </div>
       ) : currentScreen === 'home' ? (
         <HomeScreen onNavigate={handleNavigate} trackCounts={trackCounts} />
@@ -754,16 +753,16 @@ const MusicPlayer = () => {
             currentScreen={currentScreen}
           />
           {currentTrack && (
-            <ReactHowler
+      <ReactHowler
               src={currentTrack.audio}
-              playing={isPlaying}
-              onLoad={handleOnLoad}
-              onEnd={handleOnEnd}
-              onLoadError={handleHowlerError}
-              ref={playerRef}
-              volume={volume}
-              html5={true}
-            />
+        playing={isPlaying}
+        onLoad={handleOnLoad}
+        onEnd={handleOnEnd}
+        onLoadError={handleHowlerError}
+        ref={playerRef}
+        volume={volume}
+        html5={true}
+      />
           )}
         </>
       )}

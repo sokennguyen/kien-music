@@ -20,11 +20,11 @@ func init() {
 		log.Printf("Error opening log file: %v", err)
 		os.Exit(1)
 	}
-	
+
 	mw := io.MultiWriter(os.Stdout, logFile)
 	log.SetOutput(mw)
 	log.SetFlags(log.Ldate | log.Ltime)
-	
+
 	// Log startup message to ensure logging is working
 	log.Println("Server initializing with multi-writer logging...")
 }
@@ -41,17 +41,17 @@ type CloudinaryResponse struct {
 }
 
 type CloudinaryNotification struct {
-	NotificationType     string    `json:"notification_type"`
-	Timestamp           string    `json:"timestamp,omitempty"`
-	RequestID           string    `json:"request_id,omitempty"`
-	AssetID            string    `json:"asset_id,omitempty"`
-	PublicID           string    `json:"public_id"`
-	ResourceType       string    `json:"resource_type"`
-	Type              string    `json:"type"`
-	Version           int64     `json:"version,omitempty"`
-	Format            string    `json:"format,omitempty"`
+	NotificationType    string `json:"notification_type"`
+	Timestamp           string `json:"timestamp,omitempty"`
+	RequestID           string `json:"request_id,omitempty"`
+	AssetID             string `json:"asset_id,omitempty"`
+	PublicID            string `json:"public_id"`
+	ResourceType        string `json:"resource_type"`
+	Type                string `json:"type"`
+	Version             int64  `json:"version,omitempty"`
+	Format              string `json:"format,omitempty"`
 	NotificationContext struct {
-		TriggeredAt  string `json:"triggered_at"`
+		TriggeredAt string `json:"triggered_at"`
 		TriggeredBy struct {
 			Source string `json:"source"`
 			ID     string `json:"id"`
@@ -61,14 +61,14 @@ type CloudinaryNotification struct {
 
 // Global cache
 var (
-	trackCache     CloudinaryResponse
-	trackCacheMux  sync.RWMutex
-	lastFetchTime  time.Time
-	lastFetchMux   sync.RWMutex
-	
+	trackCache    CloudinaryResponse
+	trackCacheMux sync.RWMutex
+	lastFetchTime time.Time
+	lastFetchMux  sync.RWMutex
+
 	// Cache to track recent webhook notifications
-	recentNotifications     = make(map[string]time.Time)
-	recentNotificationsMux  sync.RWMutex
+	recentNotifications    = make(map[string]time.Time)
+	recentNotificationsMux sync.RWMutex
 )
 
 // Cleanup old notifications periodically
@@ -93,7 +93,7 @@ func fetchTracks(cloudName, apiKey, apiSecret string) (*CloudinaryResponse, erro
 	log.Printf("=== Fetching tracks from Cloudinary ===")
 	log.Printf("Cloud Name: %s", cloudName)
 	log.Printf("API Key: %s", apiKey)
-	
+
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
@@ -124,7 +124,7 @@ func fetchTracks(cloudName, apiKey, apiSecret string) (*CloudinaryResponse, erro
 	defer resp.Body.Close()
 
 	log.Printf("Cloudinary API response status: %s", resp.Status)
-	
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Printf("Error reading response body: %v", err)
@@ -143,7 +143,7 @@ func fetchTracks(cloudName, apiKey, apiSecret string) (*CloudinaryResponse, erro
 		log.Printf("Track %d: %s (format: %s)", i+1, track.PublicID, track.Format)
 	}
 	log.Printf("=== Fetch complete ===")
-	
+
 	return &result, nil
 }
 
@@ -158,7 +158,7 @@ func updateCache(cloudName, apiKey, apiSecret string) error {
 
 	trackCacheMux.Lock()
 	defer trackCacheMux.Unlock()
-	
+
 	log.Printf("Previous cache had %d tracks", len(trackCache.Resources))
 	trackCache = *tracks
 	log.Printf("New cache has %d tracks", len(tracks.Resources))
@@ -174,11 +174,11 @@ func updateCache(cloudName, apiKey, apiSecret string) error {
 func main() {
 	// Start cleanup goroutine
 	cleanupOldNotifications()
-	
+
 	// Set up logging to stdout
 	log.SetOutput(os.Stdout)
 	log.SetFlags(log.Ldate | log.Ltime)
-	
+
 	// Log startup
 	log.Println("=== Server starting up ===")
 
@@ -193,7 +193,7 @@ func main() {
 	log.Printf("=== Cloudinary config ===")
 	log.Printf("Cloud Name: %s", cloudName)
 	log.Printf("API Key: %s", apiKey)
-	log.Printf("API Secret: %s", apiSecret[:5] + "...")
+	log.Printf("API Secret: %s", apiSecret[:5]+"...")
 
 	if cloudName == "" || apiKey == "" || apiSecret == "" {
 		log.Println("Fatal: Required environment variables not found")
@@ -213,18 +213,18 @@ func main() {
 		return func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 			log.Printf("=== REQUEST START: %s %s from %s ===", r.Method, r.URL.Path, r.RemoteAddr)
-			
+
 			// Add CORS headers
 			w.Header().Set("Access-Control-Allow-Origin", "*")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-			
+
 			// Handle preflight requests
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
 				return
 			}
-			
+
 			next(w, r)
 			log.Printf("=== REQUEST END: %s %s in %v ===", r.Method, r.URL.Path, time.Since(start))
 		}
@@ -333,12 +333,12 @@ func main() {
 		lastFetchMux.RUnlock()
 
 		response := struct {
-			Status        string    `json:"status"`
+			Status       string    `json:"status"`
 			LastFetch    time.Time `json:"last_fetch"`
 			CachedTracks int       `json:"cached_tracks"`
 		}{
-			Status:     "healthy",
-			LastFetch:  lastFetch,
+			Status:       "healthy",
+			LastFetch:    lastFetch,
 			CachedTracks: len(trackCache.Resources),
 		}
 
@@ -356,4 +356,4 @@ func main() {
 		log.Printf("HTTP Server failed: %v", err)
 		os.Exit(1)
 	}
-} 
+}

@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -102,9 +100,8 @@ func main() {
 	cloudName := os.Getenv("CLOUDINARY_CLOUD_NAME")
 	apiKey := os.Getenv("CLOUDINARY_API_KEY")
 	apiSecret := os.Getenv("CLOUDINARY_API_SECRET")
-	webhookSecret := os.Getenv("CLOUDINARY_WEBHOOK_SECRET")
 
-	if cloudName == "" || apiKey == "" || apiSecret == "" || webhookSecret == "" {
+	if cloudName == "" || apiKey == "" || apiSecret == "" {
 		log.Fatal("Required environment variables not found")
 	}
 

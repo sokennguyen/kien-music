@@ -1,5 +1,5 @@
 [Unit]
-Description=Music Portfolio Server
+Description=Music Server
 After=network.target
 
 [Service]
@@ -9,6 +9,8 @@ WorkingDirectory=/root/music-server/server
 ExecStart=/root/music-server/server/music-server
 Restart=always
 RestartSec=5
+StandardOutput=journal
+StandardError=journal
 Environment=PORT=80
 
 [Install]
